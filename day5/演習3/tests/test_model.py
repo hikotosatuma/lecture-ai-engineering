@@ -136,38 +136,42 @@ def test_model_inference_time(train_model):
     assert inference_time < 1.0, f"推論時間が長すぎます: {inference_time}秒"
 
 
-def test_model_reproducibility(sample_data, preprocessor):
-    """モデルの再現性を検証"""
-    # データの分割
-    X = sample_data.drop("Survived", axis=1)
-    y = sample_data["Survived"].astype(int)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+import mlflow  # このモジュールがMLflowのAPIを利用するために必要です
+
+
+def get_baseline_accuracy_mlflow():
+    """
+    MLflowに記録された直近のRunから、accuracyメトリクスを取得する関数。
+    ※ experiment_id は適宜設定してください
+    """
+    # ここでは experiment_id "0" を例として使用します。必要に応じて変更してください。
+    experiment_id = "0"
+    runs = mlflow.search_runs(
+        experiment_ids=[experiment_id], order_by=["start_time DESC"], max_results=1
     )
+    if runs.empty or "metrics.accuracy" not in runs.columns:
+        return None
+    baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
+    return baseline_accuracy
 
-    # 同じパラメータで２つのモデルを作成
-    model1 = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
-        ]
-    )
 
-    model2 = Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
-        ]
-    )
+def test_model_regression_mlflow(train_model):
+    """
+    MLflow に記録されている直前のモデルの accuracy スコアをベースラインとして、
+    現在学習したモデルの精度が劣化していないかを検証するテストです。
+    """
+    model, X_test, y_test = train_model
 
-    # 学習
-    model1.fit(X_train, y_train)
-    model2.fit(X_train, y_train)
+    # 現在のモデルの予測と精度計算
+    current_preds = model.predict(X_test)
+    current_accuracy = accuracy_score(y_test, current_preds)
 
-    # 同じ予測結果になることを確認
-    predictions1 = model1.predict(X_test)
-    predictions2 = model2.predict(X_test)
+    baseline_accuracy = get_baseline_accuracy_mlflow()
+    if baseline_accuracy is None:
+        pytest.skip(
+            "MLflowからベースライン精度が取得できなかったため、回帰テストをスキップします"
+        )
 
-    assert np.array_equal(
-        predictions1, predictions2
-    ), "モデルの予測結果に再現性がありません"
+    assert (
+        current_accuracy >= baseline_accuracy
+    ), f"新モデルの精度({current_accuracy:.4f})が、MLflow上のベースライン精度({baseline_accuracy:.4f})より低下しています"
