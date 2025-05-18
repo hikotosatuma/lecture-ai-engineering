@@ -22,6 +22,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest great_expectations pandas scikit-learn flake8 black mypy pytest-cov mlflow
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Set up MLflow Tracking URI
+      run: |
+        mkdir -p mlruns
+        echo "MLFLOW_TRACKING_URI=file://${GITHUB_WORKSPACE}/mlruns" >> $GITHUB_ENV
         
     - name: Lint with flake8
       run: |

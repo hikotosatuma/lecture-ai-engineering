@@ -11,6 +11,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from mlflow.models.signature import infer_signature
 from sklearn.model_selection import GridSearchCV
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
 
 
 # データ準備
@@ -45,19 +49,40 @@ def train_and_evaluate(
     X_train, X_test, y_train, y_test, n_estimators=100, max_depth=None, random_state=42
 ):
 
+    numeric_features = ["Pclass", "Sex", "Age", "Fare"]
+    numeric_transformer = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
+    preprocessor = ColumnTransformer(
+        transformers=[("num", numeric_transformer, numeric_features)]
+    )
+
+    # モデルと前処理を統合したパイプライン
+    pipeline = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("classifier", RandomForestClassifier(random_state=random_state)),
+        ]
+    )
+
     param_grid = {
-        "n_estimators": [100, 150, 200],
-        "max_depth": [None, 5, 10, 15],
-        "min_samples_split": [2, 5, 10],
+        "classifier__n_estimators": [100, 150, 200, 250],
+        "classifier__max_depth": [None, 5, 10, 15, 20],
+        "classifier__min_samples_split": [2, 5, 10],
     }
-    model = RandomForestClassifier(random_state=42)
     grid_search = GridSearchCV(
-        estimator=model, param_grid=param_grid, cv=5, scoring="accuracy", n_jobs=-1
+        estimator=pipeline,
+        param_grid=param_grid,
+        cv=5,
+        scoring="accuracy",
+        n_jobs=-1,
+        refit=True,
     )
     grid_search.fit(X_train, y_train)
-
     best_model = grid_search.best_estimator_
-    
     predictions = best_model.predict(X_test)
     accuracy = accuracy_score(y_test, predictions)
     return best_model, accuracy, grid_search.best_params_
@@ -122,6 +147,34 @@ if __name__ == "__main__":
     #     max_depth=max_depth,
     #     random_state=model_random_state,
     # )
+
+    def get_baseline_accuracy_mlflow():
+        experiment_id = "0"  # 必要に応じて調整
+        runs = mlflow.search_runs(
+            experiment_ids=[experiment_id],
+            order_by=["start_time DESC"],
+            max_results=1,  # 最新1件のみ取得 → 直前のRunを使用
+        )
+        if runs.empty or "metrics.accuracy" not in runs.columns:
+            return None
+        baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
+        return baseline_accuracy
+
+    # 学習と評価
+    model, accuracy, best_params = train_and_evaluate(X_train, X_test, y_train, y_test)
+
+    # ここで前回と比較
+    baseline_accuracy = get_baseline_accuracy_mlflow()
+    if baseline_accuracy is None:
+        print(
+            "MLflowから前回のモデル精度が取得できなかったため、比較は実施されませんでした。"
+        )
+    else:
+        print(f"前回のモデル精度: {baseline_accuracy:.4f}")
+        print(f"今回のモデル精度: {accuracy:.4f}")
+        if accuracy < baseline_accuracy:
+            raise Exception("新モデルの精度が前回のモデル精度より低下しています！")
+
     model, accuracy, best_params = train_and_evaluate(X_train, X_test, y_train, y_test)
 
     # モデル保存
