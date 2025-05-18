@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import LabelEncoder
 from mlflow.models.signature import infer_signature
+from sklearn.model_selection import GridSearchCV
 
 
 # データ準備
@@ -43,13 +44,23 @@ def prepare_data(test_size=0.2, random_state=42):
 def train_and_evaluate(
     X_train, X_test, y_train, y_test, n_estimators=100, max_depth=None, random_state=42
 ):
-    model = RandomForestClassifier(
-        n_estimators=n_estimators, max_depth=max_depth, random_state=random_state
+
+    param_grid = {
+        "n_estimators": [100, 150, 200],
+        "max_depth": [None, 5, 10, 15],
+        "min_samples_split": [2, 5, 10],
+    }
+    model = RandomForestClassifier(random_state=42)
+    grid_search = GridSearchCV(
+        estimator=model, param_grid=param_grid, cv=5, scoring="accuracy", n_jobs=-1
     )
-    model.fit(X_train, y_train)
-    predictions = model.predict(X_test)
+    grid_search.fit(X_train, y_train)
+
+    best_model = grid_search.best_estimator_
+    
+    predictions = best_model.predict(X_test)
     accuracy = accuracy_score(y_test, predictions)
-    return model, accuracy
+    return best_model, accuracy, grid_search.best_params_
 
 
 # モデル保存
@@ -102,15 +113,16 @@ if __name__ == "__main__":
     )
 
     # 学習と評価
-    model, accuracy = train_and_evaluate(
-        X_train,
-        X_test,
-        y_train,
-        y_test,
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        random_state=model_random_state,
-    )
+    # model, accuracy = train_and_evaluate(
+    #     X_train,
+    #     X_test,
+    #     y_train,
+    #     y_test,
+    #     n_estimators=n_estimators,
+    #     max_depth=max_depth,
+    #     random_state=model_random_state,
+    # )
+    model, accuracy, best_params = train_and_evaluate(X_train, X_test, y_train, y_test)
 
     # モデル保存
     log_model(model, accuracy, params)
