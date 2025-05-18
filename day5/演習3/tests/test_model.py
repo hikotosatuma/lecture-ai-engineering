@@ -140,21 +140,17 @@ import mlflow  # このモジュールがMLflowのAPIを利用するために必
 
 
 def get_baseline_accuracy_mlflow():
-    """
-    MLflowに記録された直近のRunから、accuracyメトリクスを取得する関数。
-    ※ experiment_id は適宜設定してください
-    """
-    # ここでは experiment_id "0" を例として使用します。必要に応じて変更してください。
-    experiment_id = "0"
+    experiment_id = "0"  # 必要に応じて変更
     runs = mlflow.search_runs(
-        experiment_ids=[experiment_id], order_by=["start_time DESC"], max_results=1
+        experiment_ids=[experiment_id],
+        order_by=["start_time DESC"],
+        max_results=2  # 最新の2件を取得する
     )
-    if runs.empty or "metrics.accuracy" not in runs.columns:
+    if runs.empty or len(runs) < 2 or "metrics.accuracy" not in runs.columns:
         return None
-    baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
-    print(
-        f"MLflowから取得したベースライン精度: {baseline_accuracy:.4f}"
-    )  # デバッグ用に出力
+    # 最新のRun（index 0）は今回の可能性があるので、ひとつ前のRun（index 1）を使用
+    baseline_accuracy = float(runs.iloc[1]["metrics.accuracy"])
+    print(f"MLflowから取得した前回のモデル精度: {baseline_accuracy:.4f}")
     return baseline_accuracy
 
 
