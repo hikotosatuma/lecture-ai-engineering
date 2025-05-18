@@ -144,7 +144,7 @@ def get_baseline_accuracy_mlflow():
     runs = mlflow.search_runs(
         experiment_ids=[experiment_id],
         order_by=["start_time DESC"],
-        max_results=2  # 最新の2件を取得する
+        max_results=2,  # 最新の2件を取得する
     )
     if runs.empty or len(runs) < 2 or "metrics.accuracy" not in runs.columns:
         return None
