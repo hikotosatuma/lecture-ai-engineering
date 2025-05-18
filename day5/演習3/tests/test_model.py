@@ -140,18 +140,19 @@ import mlflow  # このモジュールがMLflowのAPIを利用するために必
 
 
 def get_baseline_accuracy_mlflow():
-        experiment_id = "0"  # Ensure this matches your MLflow experiment
-        runs = mlflow.search_runs(
-            experiment_ids=[experiment_id],
-            order_by=["start_time DESC"],
-            max_results=2,  # We take the latest two runs
-        )
-        if runs.empty or len(runs) < 2 or "metrics.accuracy" not in runs.columns:
-            return None
-        # Use the second latest run as the baseline.
-        baseline_accuracy = float(runs.iloc[1]["metrics.accuracy"])
-        print(f"MLflowから取得した前回のモデル精度: {baseline_accuracy:.4f}")
-        return baseline_accuracy
+    experiment_id = "0"  # Ensure this matches your MLflow experiment
+    runs = mlflow.search_runs(
+        experiment_ids=[experiment_id],
+        order_by=["start_time DESC"],
+        max_results=2,  # We take the latest two runs
+    )
+    if runs.empty or len(runs) < 2 or "metrics.accuracy" not in runs.columns:
+        return None
+    # Use the second latest run as the baseline.
+    baseline_accuracy = float(runs.iloc[1]["metrics.accuracy"])
+    print(f"MLflowから取得した前回のモデル精度: {baseline_accuracy:.4f}")
+    return baseline_accuracy
+
 
 def test_model_regression_mlflow(train_model):
     """
@@ -166,7 +167,10 @@ def test_model_regression_mlflow(train_model):
 
     baseline_accuracy = get_baseline_accuracy_mlflow()
     if baseline_accuracy is None:
-        pytest.skip("MLflowからベースライン精度が取得できなかったため、回帰テストをスキップします")
-    
-    assert current_accuracy >= baseline_accuracy, \
-        f"新モデルの精度({current_accuracy:.4f})が、MLflow上のベースライン精度({baseline_accuracy:.4f})より低下しています"
+        pytest.skip(
+            "MLflowからベースライン精度が取得できなかったため、回帰テストをスキップします"
+        )
+
+    assert (
+        current_accuracy >= baseline_accuracy
+    ), f"新モデルの精度({current_accuracy:.4f})が、MLflow上のベースライン精度({baseline_accuracy:.4f})より低下しています"
