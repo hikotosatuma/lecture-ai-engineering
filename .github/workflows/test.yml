@@ -26,6 +26,12 @@ jobs:
       run: |
         mkdir -p mlruns
         echo "MLFLOW_TRACKING_URI=file://${GITHUB_WORKSPACE}/mlruns" >> $GITHUB_ENV
+
+    - name: Cache mlruns folder
+      uses: actions/cache@v3
+      with:
+        path: mlruns
+        key: mlruns-${{ runner.os }}-${{ hashFiles('mlruns/**') }}
         
     - name: Lint with flake8
       run: |
