@@ -152,6 +152,9 @@ def get_baseline_accuracy_mlflow():
     if runs.empty or "metrics.accuracy" not in runs.columns:
         return None
     baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
+    print(
+        f"MLflowから取得したベースライン精度: {baseline_accuracy:.4f}"
+    )  # デバッグ用に出力
     return baseline_accuracy
 
 
