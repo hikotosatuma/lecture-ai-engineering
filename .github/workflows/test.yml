@@ -10,7 +10,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout PR code
+      uses: actions/checkout@v4 # PRのコードをチェックアウト (v3からv4に更新)
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -22,6 +23,30 @@ jobs:
         python -m pip install --upgrade pip
         pip install pytest great_expectations pandas scikit-learn flake8 black mypy pytest-cov mlflow
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Checkout baseline model from main branch
+      uses: actions/checkout@v4 # ベースラインモデル取得のために再度チェックアウト
+      with:
+        ref: main # ベースラインとするブランチ (mainまたはmasterなど)
+        path: .baseline_checkout # 一時的なディレクトリにチェックアウト
+        sparse-checkout: |       # 必要なファイルのみを効率的にチェックアウト
+          day5/演習1/models/titanic_model.pkl
+
+    - name: Setup baseline model for test
+      run: |
+        BASELINE_MODEL_SOURCE_PATH=".baseline_checkout/day5/演習1/models/titanic_model.pkl"
+        # test_model.py が期待する ../../演習1/models/ からの相対パスを解決すると、
+        # リポジトリルートからのパスは day5/演習1/models/ となる
+        BASELINE_MODEL_TARGET_DIR="day5/演習1/models"
+        
+        mkdir -p ${{BASELINE_MODEL_TARGET_DIR}}
+        if [ -f "$BASELINE_MODEL_SOURCE_PATH" ]; then
+          cp "$BASELINE_MODEL_SOURCE_PATH" "${{BASELINE_MODEL_TARGET_DIR}}/"
+          echo "INFO: Baseline model 'titanic_model.pkl' copied to ${{BASELINE_MODEL_TARGET_DIR}}/"
+        else
+          echo "WARN: Baseline model not found at $BASELINE_MODEL_SOURCE_PATH. Regression test might fail if the test strictly requires it."
+          # test_model.py内のテストはファイルが存在しない場合 pytest.fail するため、ここでexit 1しなくてもテストは失敗する
+        fi
         
     - name: Lint with flake8
       run: |
