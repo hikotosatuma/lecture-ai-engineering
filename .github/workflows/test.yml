@@ -35,14 +35,12 @@ jobs:
     - name: Setup baseline model for test
       run: |
         BASELINE_MODEL_SOURCE_PATH=".baseline_checkout/day5/演習1/models/titanic_model.pkl"
-        # test_model.py が期待する ../../演習1/models/ からの相対パスを解決すると、
-        # リポジトリルートからのパスは day5/演習1/models/ となる
         BASELINE_MODEL_TARGET_DIR="day5/演習1/models"
         
-        mkdir -p ${{BASELINE_MODEL_TARGET_DIR}}
+        mkdir -p $BASELINE_MODEL_TARGET_DIR 
         if [ -f "$BASELINE_MODEL_SOURCE_PATH" ]; then
-          cp "$BASELINE_MODEL_SOURCE_PATH" "${{BASELINE_MODEL_TARGET_DIR}}/"
-          echo "INFO: Baseline model 'titanic_model.pkl' copied to ${{BASELINE_MODEL_TARGET_DIR}}/"
+          cp "$BASELINE_MODEL_SOURCE_PATH" "$BASELINE_MODEL_TARGET_DIR/"
+          echo "INFO: Baseline model 'titanic_model.pkl' copied to $BASELINE_MODEL_TARGET_DIR/" 
         else
           echo "WARN: Baseline model not found at $BASELINE_MODEL_SOURCE_PATH. Regression test might fail if the test strictly requires it."
           # test_model.py内のテストはファイルが存在しない場合 pytest.fail するため、ここでexit 1しなくてもテストは失敗する
