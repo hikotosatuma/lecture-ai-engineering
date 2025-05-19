@@ -136,40 +136,49 @@ def test_model_inference_time(train_model):
     assert inference_time < 1.0, f"推論時間が長すぎます: {inference_time}秒"
 
 
-import mlflow  # このモジュールがMLflowのAPIを利用するために必要です
+import mlflow
+import pytest  # pytestをインポート
 
 
 def get_baseline_accuracy_mlflow():
-    experiment_id = "0"  # Ensure this matches your MLflow experiment
-    runs = mlflow.search_runs(
-        experiment_ids=[experiment_id],
-        order_by=["start_time DESC"],
-        max_results=2,  # We take the latest two runs
+    experiment_id = "0"  # ご自身のMLflow実験IDに合わせてください
+    try:
+        runs = mlflow.search_runs(
+            experiment_ids=[experiment_id],
+            filter_string="tags.'baseline_run' = 'true'",  # ベースラインを示すタグでフィルタ
+            order_by=["start_time DESC"],
+            max_results=1,  # タグ付けされた最新の1件を取得
+        )
+    except Exception as e:
+        pytest.fail(f"MLflowからのRun検索中にエラーが発生しました: {e}")
+
+    if runs.empty or "metrics.accuracy" not in runs.columns:
+        pytest.fail(
+            "ベースラインとなるMLflowの実行(tags.'baseline_run'='true')が見つかりませんでした。"
+            "mainブランチでのモデル学習とMLflowへの記録が正しく行われているか確認してください。"
+        )
+
+    baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
+    print(
+        f"MLflowから取得したベースラインモデル精度 (タグ付き): {baseline_accuracy:.4f}"
     )
-    if runs.empty or len(runs) < 2 or "metrics.accuracy" not in runs.columns:
-        return None
-    # Use the second latest run as the baseline.
-    baseline_accuracy = float(runs.iloc[1]["metrics.accuracy"])
-    print(f"MLflowから取得した前回のモデル精度: {baseline_accuracy:.4f}")
     return baseline_accuracy
 
 
 def test_model_regression_mlflow(train_model):
     """
-    MLflow に記録された直前のモデルの accuracy をベースラインとして、
+    MLflow に記録されたタグ付きの最新ベースラインモデルの accuracy を基準として、
     新しいモデルの accuracy が低下していないことを検証します。
     """
     model, X_test, y_test = train_model
 
-    # 現在のモデルの予測と精度計算
     current_preds = model.predict(X_test)
     current_accuracy = accuracy_score(y_test, current_preds)
+    print(f"今回のモデルの精度: {current_accuracy:.4f}")
 
-    baseline_accuracy = get_baseline_accuracy_mlflow()
-    if baseline_accuracy is None:
-        pytest.skip(
-            "MLflowからベースライン精度が取得できなかったため、回帰テストをスキップします"
-        )
+    baseline_accuracy = (
+        get_baseline_accuracy_mlflow()
+    )  # ここでNoneが返る場合はget_baseline_accuracy_mlflow内でfailする
 
     assert (
         current_accuracy >= baseline_accuracy

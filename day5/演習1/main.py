@@ -98,6 +98,13 @@ def log_model(model, accuracy, params):
         # メトリクスをログ
         mlflow.log_metric("accuracy", accuracy)
 
+        github_ref = os.environ.get("GITHUB_REF", "")
+        if github_ref == "refs/heads/main" or github_ref == "refs/heads/master":
+            mlflow.set_tag("baseline_run", "true")
+            print(
+                "main/masterブランチでの実行のため、'baseline_run: true'タグを付与しました。"
+            )
+
         # モデルのシグネチャを推論
         signature = infer_signature(X_train, model.predict(X_train))
 
@@ -161,20 +168,6 @@ if __name__ == "__main__":
         return baseline_accuracy
 
     # 学習と評価
-    model, accuracy, best_params = train_and_evaluate(X_train, X_test, y_train, y_test)
-
-    # ここで前回と比較
-    baseline_accuracy = get_baseline_accuracy_mlflow()
-    if baseline_accuracy is None:
-        print(
-            "MLflowから前回のモデル精度が取得できなかったため、比較は実施されませんでした。"
-        )
-    else:
-        print(f"前回のモデル精度: {baseline_accuracy:.4f}")
-        print(f"今回のモデル精度: {accuracy:.4f}")
-        if accuracy < baseline_accuracy:
-            raise Exception("新モデルの精度が前回のモデル精度より低下しています！")
-
     model, accuracy, best_params = train_and_evaluate(X_train, X_test, y_train, y_test)
 
     # モデル保存
