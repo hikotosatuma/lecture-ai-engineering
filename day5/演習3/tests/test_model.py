@@ -182,15 +182,19 @@ def get_baseline_accuracy_mlflow():
     tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID", "0")  # デフォルトは "0"
 
-    if not tracking_uri:
-        pytest.skip(
-            "MLFLOW_TRACKING_URIが設定されていません。MLflow連携テストをスキップします。"
-        )
-        return None  # スキップしたことがわかるようにNoneを返す
-
-    mlflow.set_tracking_uri(tracking_uri)
+    # MLFLOW_TRACKING_URIが設定されていなくても、MLflowの処理を試みるようにするため、
+    # ここでの明示的なスキップ処理を削除します。
+    # if not tracking_uri:
+    #     pytest.skip(
+    #         "MLFLOW_TRACKING_URIが設定されていません。MLflow連携テストをスキップします。"
+    #     )
+    #     return None
 
     try:
+        # tracking_uriがNoneの場合、mlflow.set_tracking_uriはエラーを発生させるか、
+        # ローカルのデフォルトURI（例: ./mlruns）を使用しようとします。
+        # エラーが発生した場合は下のexceptブロックで捕捉されます。
+        mlflow.set_tracking_uri(tracking_uri)
         runs = mlflow.search_runs(
             experiment_ids=[experiment_id],
             order_by=["start_time DESC"],  # 最新のrunを取得
