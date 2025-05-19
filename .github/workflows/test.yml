@@ -27,7 +27,7 @@ jobs:
     - name: Checkout baseline model from main branch
       uses: actions/checkout@v4 # ベースラインモデル取得のために再度チェックアウト
       with:
-        ref: main # ベースラインとするブランチ (mainまたはmasterなど)
+        ref: master
         path: .baseline_checkout # 一時的なディレクトリにチェックアウト
         sparse-checkout: |       # 必要なファイルのみを効率的にチェックアウト
           day5/演習1/models/titanic_model.pkl
