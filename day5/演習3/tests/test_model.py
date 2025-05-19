@@ -174,44 +174,55 @@ def test_model_reproducibility(sample_data, preprocessor):
     ), "モデルの予測結果に再現性がありません"
 
 
-import mlflow  # このモジュールがMLflowのAPIを利用するために必要です
-
-
-def get_baseline_accuracy_mlflow():
+def test_model_regression_against_baseline_file(train_model): # 関数名を変更
     """
-    MLflowに記録された直近のRunから、accuracyメトリクスを取得する関数。
-    ※ experiment_id は適宜設定してください
-    """
-    # ここでは experiment_id "0" を例として使用します。必要に応じて変更してください。
-    experiment_id = "0"
-    runs = mlflow.search_runs(
-        experiment_ids=[experiment_id], order_by=["start_time DESC"], max_results=1
-    )
-    if runs.empty or "metrics.accuracy" not in runs.columns:
-        return None
-    baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
-    return baseline_accuracy
-
-
-def test_model_regression_mlflow(train_model):
-    """
-    現在のモデルの精度を、MLflow上の最新のベースラインモデルの精度と比較する。
-    精度がベースラインを下回った場合にテストを失敗させる。
+    現在のモデルの精度を、ファイルとして保存されたベースラインモデルの精度と比較する。
+    精度がベースラインを下回った場合にテストを失敗させ、ログに情報を出力する。
     """
     current_model, X_test, y_test = train_model
+    
+    # 現在のモデルの精度計算
     y_pred_current = current_model.predict(X_test)
     current_accuracy = accuracy_score(y_test, y_pred_current)
-    print(f"現在のモデルの精度: {current_accuracy}")
+    print(f"INFO: 現在のプルリクエストのモデル精度: {current_accuracy:.4f}")
 
-    baseline_accuracy = get_baseline_accuracy_mlflow()
+    baseline_model_dir = os.path.join(os.path.dirname(__file__), "../../演習1/models")
+    baseline_model_path = os.path.join(baseline_model_dir, "titanic_model.pkl")
+    
+    print(f"INFO: ベースラインモデルのパスを探索: {baseline_model_path}")
 
-    if baseline_accuracy is None:
-        pytest.fail(
-            "ベースライン精度がMLflowから取得できませんでした。精度比較テストを実行できません。"
+    if not os.path.exists(baseline_model_path):
+        # ベースラインモデルファイルが見つからない場合、テストをスキップまたは失敗させる
+        # ここでは失敗させることで、ベースラインのセットアップ漏れに気づきやすくする
+        message = f"FAIL: ベースラインモデルファイルが見つかりません: {baseline_model_path}。PRの承認/停止判断ができません。"
+        print(message)
+        pytest.fail(message)
+
+    # ベースラインモデルの読み込みと精度計算
+    try:
+        with open(baseline_model_path, "rb") as f:
+            baseline_model = pickle.load(f)
+        print(f"INFO: ベースラインモデルを正常に読み込みました: {baseline_model_path}")
+        
+        y_pred_baseline = baseline_model.predict(X_test) # X_testは前処理前のデータ
+        baseline_accuracy = accuracy_score(y_test, y_pred_baseline)
+        print(f"INFO: ベースラインモデルの精度: {baseline_accuracy:.4f}")
+
+    except Exception as e:
+        message = f"FAIL: ベースラインモデルの読み込みまたは評価中にエラーが発生しました: {e}。PRの承認/停止判断ができません。"
+        print(message)
+        pytest.fail(message)
+
+    # 精度の比較と結果の判断
+    if current_accuracy >= baseline_accuracy:
+        print(
+            f"PASS: 新モデルの精度 ({current_accuracy:.4f}) はベースラインモデルの精度 ({baseline_accuracy:.4f}) 以上です。PRは承認されます。"
         )
+        # テストは成功 (assert True は不要、何もエラーが起きなければ成功)
     else:
-        # ここでは単純に下回った場合をエラーとしていますが、許容範囲を設けることも可能です。
-        # 例: assert current_accuracy >= baseline_accuracy - 0.01
-        assert (
-            current_accuracy >= baseline_accuracy
-        ), f"新モデルの精度({current_accuracy:.4f})が、MLflow上のベースライン精度({baseline_accuracy:.4f})より低下しています"
+        degradation = baseline_accuracy - current_accuracy
+        message = (
+            f"STOP: 新モデルの精度 ({current_accuracy:.4f}) がベースラインモデルの精度 ({baseline_accuracy:.4f}) より {degradation:.4f} 低下しています。PRは停止されます。"
+        )
+        print(message)
+        assert current_accuracy >= baseline_accuracy, message 

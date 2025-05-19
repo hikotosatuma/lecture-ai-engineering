@@ -38,8 +38,6 @@ jobs:
         
     - name: Run model tests
       env:
-        MLFLOW_TRACKING_URI: file://${{ github.workspace }}/day5/演習1/mlruns
-        MLFLOW_EXPERIMENT_ID: "0"
-        PYTHONPATH: "${{ github.workspace }}/day5/演習3:${{ github.workspace }}/day5/演習2:${{ github.workspace }}/day5/演習1"
-      run: |
-        pytest day5/演習3/tests/test_model.py -k test_model_regression_mlflow -v
+        PYTHONPATH: ${{ github.workspace }}
+      run: 
+        pytest day5/演習3/tests/test_model.py -k test_model_regression_against_baseline_file -v
