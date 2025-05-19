@@ -9,7 +9,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder, StandardScaler,  LabelEncoder
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 
@@ -189,7 +189,7 @@ def test_model_regression_against_baseline_file(train_model):
     # ベースラインモデルのパスを定義・ロード
     baseline_model_dir = os.path.join(os.path.dirname(__file__), "../../演習1/models")
     baseline_model_path = os.path.join(baseline_model_dir, "titanic_model.pkl")
-    
+
     print(f"INFO: ベースラインモデルのパスを探索: {baseline_model_path}")
 
     if not os.path.exists(baseline_model_path):
@@ -214,24 +214,32 @@ def test_model_regression_against_baseline_file(train_model):
     # "Age" と "Fare" が欠損していない行のインデックスを取得
     # (演習1の prepare_data で Pclass, Sex, Age, Fare, Survived の .dropna() を実施しているため、
     #  これらのうち欠損しうる Age, Fare を基準にする)
-    common_valid_indices = X_test_copy[['Age', 'Fare']].dropna().index
-    
+    common_valid_indices = X_test_copy[["Age", "Fare"]].dropna().index
+
     X_test_common_subset = X_test_copy.loc[common_valid_indices]
     y_test_common_subset = y_test_copy.loc[common_valid_indices]
 
     if X_test_common_subset.empty:
-        print("WARN: ベースラインモデルと比較可能な共通データサブセットが空です（Age/FareのNaNのため）。リグレッション比較をスキップします。")
+        print(
+            "WARN: ベースラインモデルと比較可能な共通データサブセットが空です（Age/FareのNaNのため）。リグレッション比較をスキップします。"
+        )
         pytest.skip("ベースラインモデルと比較するための共通データがありません。")
         return
 
     print(f"INFO: 完全テストセットのサンプル数: {len(X_test)}")
-    print(f"INFO: ベースライン比較用共通サブセットのサンプル数: {len(X_test_common_subset)}")
+    print(
+        f"INFO: ベースライン比較用共通サブセットのサンプル数: {len(X_test_common_subset)}"
+    )
 
     # 3. 現在のモデルの精度を共通サブセットで計算
     try:
         y_pred_current_common = current_model.predict(X_test_common_subset)
-        current_accuracy_common = accuracy_score(y_test_common_subset, y_pred_current_common)
-        print(f"INFO: 現在のPRモデルの精度 (共通サブセット): {current_accuracy_common:.4f}")
+        current_accuracy_common = accuracy_score(
+            y_test_common_subset, y_pred_current_common
+        )
+        print(
+            f"INFO: 現在のPRモデルの精度 (共通サブセット): {current_accuracy_common:.4f}"
+        )
     except Exception as e:
         message = f"FAIL: 現在のモデルの共通サブセットでの評価中にエラー: {e}"
         print(message)
@@ -246,13 +254,17 @@ def test_model_regression_against_baseline_file(train_model):
         # "Sex" 列をラベルエンコード (演習1の処理に合わせる)
         le = LabelEncoder()
         X_baseline_input["Sex"] = le.fit_transform(X_baseline_input["Sex"])
-        
+
         # (演習1では Pclass, Sex, Age, Fare が float に変換されていたが、
         #  RandomForestClassifierはintとfloatの混在を通常許容するため、ここでは明示的な型変換は省略)
 
         y_pred_baseline_common = baseline_model.predict(X_baseline_input)
-        baseline_accuracy_common = accuracy_score(y_test_common_subset, y_pred_baseline_common)
-        print(f"INFO: ベースラインモデルの精度 (共通サブセット): {baseline_accuracy_common:.4f}")
+        baseline_accuracy_common = accuracy_score(
+            y_test_common_subset, y_pred_baseline_common
+        )
+        print(
+            f"INFO: ベースラインモデルの精度 (共通サブセット): {baseline_accuracy_common:.4f}"
+        )
     except Exception as e:
         message = f"FAIL: ベースラインモデルの共通サブセットでの評価中にエラーが発生しました: {e}"
         print(message)
@@ -265,8 +277,6 @@ def test_model_regression_against_baseline_file(train_model):
         )
     else:
         degradation = baseline_accuracy_common - current_accuracy_common
-        message = (
-            f"STOP: 新モデルの精度 (共通サブセット {current_accuracy_common:.4f}) が、ベースラインモデルの精度 (共通サブセット {baseline_accuracy_common:.4f}) より {degradation:.4f} 低下しています。"
-        )
+        message = f"STOP: 新モデルの精度 (共通サブセット {current_accuracy_common:.4f}) が、ベースラインモデルの精度 (共通サブセット {baseline_accuracy_common:.4f}) より {degradation:.4f} 低下しています。"
         print(message)
         assert current_accuracy_common >= baseline_accuracy_common, message
