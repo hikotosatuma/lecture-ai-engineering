@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import pickle
 import time
+import mlflow
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
@@ -171,3 +172,66 @@ def test_model_reproducibility(sample_data, preprocessor):
     assert np.array_equal(
         predictions1, predictions2
     ), "モデルの予測結果に再現性がありません"
+
+
+def get_baseline_accuracy_mlflow():
+    """
+    MLflowに記録された直近のRunから、accuracyメトリクスを取得する関数。
+    MLFLOW_TRACKING_URI と MLFLOW_EXPERIMENT_ID は環境変数から取得します。
+    """
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
+    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID", "0")  # デフォルトは "0"
+
+    if not tracking_uri:
+        pytest.skip(
+            "MLFLOW_TRACKING_URIが設定されていません。MLflow連携テストをスキップします。"
+        )
+        return None  # スキップしたことがわかるようにNoneを返す
+
+    mlflow.set_tracking_uri(tracking_uri)
+
+    try:
+        runs = mlflow.search_runs(
+            experiment_ids=[experiment_id],
+            order_by=["start_time DESC"],  # 最新のrunを取得
+            max_results=1,
+        )
+        if (
+            runs.empty
+            or "metrics.accuracy" not in runs.columns
+            or pd.isna(runs.iloc[0]["metrics.accuracy"])
+        ):
+            print(
+                f"Experiment ID '{experiment_id}' に有効なaccuracyメトリクスを持つRunが見つかりませんでした。"
+            )
+            return None  # ベースラインが見つからない場合はNone
+        baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
+        print(f"取得したベースライン精度: {baseline_accuracy}")
+        return baseline_accuracy
+    except Exception as e:
+        print(f"MLflowからのベースライン精度取得中にエラーが発生しました: {e}")
+        return None
+
+
+def test_model_regression_mlflow(train_model):
+    """
+    現在のモデルの精度を、MLflow上の最新のベースラインモデルの精度と比較する。
+    精度がベースラインを下回った場合にテストを失敗させる。
+    """
+    current_model, X_test, y_test = train_model
+    y_pred_current = current_model.predict(X_test)
+    current_accuracy = accuracy_score(y_test, y_pred_current)
+    print(f"現在のモデルの精度: {current_accuracy}")
+
+    baseline_accuracy = get_baseline_accuracy_mlflow()
+
+    if baseline_accuracy is None:
+        pytest.skip(
+            "ベースライン精度が取得できなかったため、精度比較テストをスキップします。"
+        )
+    else:
+        # ここでは単純に下回った場合をエラーとしていますが、許容範囲を設けることも可能です。
+        # 例: assert current_accuracy >= baseline_accuracy - 0.01
+        assert (
+            current_accuracy >= baseline_accuracy
+        ), f"モデルの精度がベースラインを下回りました。現在: {current_accuracy}, ベースライン: {baseline_accuracy}"
