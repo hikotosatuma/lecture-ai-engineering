@@ -39,5 +39,9 @@ jobs:
     - name: Run model tests
       env:
         PYTHONPATH: ${{ github.workspace }}
-      run: 
+      run: |
+        echo "INFO: Starting model regression test against baseline file."
         pytest day5/演習3/tests/test_model.py -k test_model_regression_against_baseline_file -v
+        PYTEST_EXIT_CODE=$?
+        echo "INFO: Pytest execution finished with exit code $PYTEST_EXIT_CODE."
+        exit $PYTEST_EXIT_CODE

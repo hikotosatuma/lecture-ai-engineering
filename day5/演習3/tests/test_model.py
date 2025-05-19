@@ -174,13 +174,13 @@ def test_model_reproducibility(sample_data, preprocessor):
     ), "モデルの予測結果に再現性がありません"
 
 
-def test_model_regression_against_baseline_file(train_model): # 関数名を変更
+def test_model_regression_against_baseline_file(train_model):  # 関数名を変更
     """
     現在のモデルの精度を、ファイルとして保存されたベースラインモデルの精度と比較する。
     精度がベースラインを下回った場合にテストを失敗させ、ログに情報を出力する。
     """
     current_model, X_test, y_test = train_model
-    
+
     # 現在のモデルの精度計算
     y_pred_current = current_model.predict(X_test)
     current_accuracy = accuracy_score(y_test, y_pred_current)
@@ -188,7 +188,7 @@ def test_model_regression_against_baseline_file(train_model): # 関数名を変�
 
     baseline_model_dir = os.path.join(os.path.dirname(__file__), "../../演習1/models")
     baseline_model_path = os.path.join(baseline_model_dir, "titanic_model.pkl")
-    
+
     print(f"INFO: ベースラインモデルのパスを探索: {baseline_model_path}")
 
     if not os.path.exists(baseline_model_path):
@@ -203,8 +203,8 @@ def test_model_regression_against_baseline_file(train_model): # 関数名を変�
         with open(baseline_model_path, "rb") as f:
             baseline_model = pickle.load(f)
         print(f"INFO: ベースラインモデルを正常に読み込みました: {baseline_model_path}")
-        
-        y_pred_baseline = baseline_model.predict(X_test) # X_testは前処理前のデータ
+
+        y_pred_baseline = baseline_model.predict(X_test)  # X_testは前処理前のデータ
         baseline_accuracy = accuracy_score(y_test, y_pred_baseline)
         print(f"INFO: ベースラインモデルの精度: {baseline_accuracy:.4f}")
 
@@ -221,8 +221,6 @@ def test_model_regression_against_baseline_file(train_model): # 関数名を変�
         # テストは成功 (assert True は不要、何もエラーが起きなければ成功)
     else:
         degradation = baseline_accuracy - current_accuracy
-        message = (
-            f"STOP: 新モデルの精度 ({current_accuracy:.4f}) がベースラインモデルの精度 ({baseline_accuracy:.4f}) より {degradation:.4f} 低下しています。PRは停止されます。"
-        )
+        message = f"STOP: 新モデルの精度 ({current_accuracy:.4f}) がベースラインモデルの精度 ({baseline_accuracy:.4f}) より {degradation:.4f} 低下しています。PRは停止されます。"
         print(message)
-        assert current_accuracy >= baseline_accuracy, message 
+        assert current_accuracy >= baseline_accuracy, message
