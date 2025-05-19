@@ -137,6 +137,43 @@ def test_model_inference_time(train_model):
     assert inference_time < 1.0, f"推論時間が長すぎます: {inference_time}秒"
 
 
+def test_model_reproducibility(sample_data, preprocessor):
+    """モデルの再現性を検証"""
+    # データの分割
+    X = sample_data.drop("Survived", axis=1)
+    y = sample_data["Survived"].astype(int)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
+    # 同じパラメータで２つのモデルを作成
+    model1 = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
+        ]
+    )
+
+    model2 = Pipeline(
+        steps=[
+            ("preprocessor", preprocessor),
+            ("classifier", RandomForestClassifier(n_estimators=100, random_state=42)),
+        ]
+    )
+
+    # 学習
+    model1.fit(X_train, y_train)
+    model2.fit(X_train, y_train)
+
+    # 同じ予測結果になることを確認
+    predictions1 = model1.predict(X_test)
+    predictions2 = model2.predict(X_test)
+
+    assert np.array_equal(
+        predictions1, predictions2
+    ), "モデルの予測結果に再現性がありません"
+
+
 import mlflow  # このモジュールがMLflowのAPIを利用するために必要です
 
 
@@ -154,70 +191,6 @@ def get_baseline_accuracy_mlflow():
         return None
     baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
     return baseline_accuracy
-
-
-def test_model_regression_mlflow(train_model):
-    """
-    MLflow に記録されている直前のモデルの accuracy スコアをベースラインとして、
-    現在学習したモデルの精度が劣化していないかを検証するテストです。
-    """
-    model, X_test, y_test = train_model
-
-    # 現在のモデルの予測と精度計算
-    current_preds = model.predict(X_test)
-    current_accuracy = accuracy_score(y_test, current_preds)
-
-    baseline_accuracy = get_baseline_accuracy_mlflow()
-    if baseline_accuracy is None:
-        pytest.skip(
-            "MLflowからベースライン精度が取得できなかったため、回帰テストをスキップします"
-        )
-    assert np.array_equal(
-        predictions1, predictions2
-    ), "モデルの予測結果に再現性がありません"
-
-
-def get_baseline_accuracy_mlflow():
-    """
-    MLflowに記録された直近のRunから、accuracyメトリクスを取得する関数。
-    MLFLOW_TRACKING_URI と MLFLOW_EXPERIMENT_ID は環境変数から取得します。
-    """
-    tracking_uri = os.getenv("MLFLOW_TRACKING_URI")
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID", "0")  # デフォルトは "0"
-
-    # MLFLOW_TRACKING_URIが設定されていなくても、MLflowの処理を試みるようにするため、
-    # ここでの明示的なスキップ処理を削除します。
-    # if not tracking_uri:
-    #     pytest.skip(
-    #         "MLFLOW_TRACKING_URIが設定されていません。MLflow連携テストをスキップします。"
-    #     )
-    #     return None
-
-    try:
-        # tracking_uriがNoneの場合、mlflow.set_tracking_uriはエラーを発生させるか、
-        # ローカルのデフォルトURI（例: ./mlruns）を使用しようとします。
-        # エラーが発生した場合は下のexceptブロックで捕捉されます。
-        mlflow.set_tracking_uri(tracking_uri)
-        runs = mlflow.search_runs(
-            experiment_ids=[experiment_id],
-            order_by=["start_time DESC"],  # 最新のrunを取得
-            max_results=1,
-        )
-        if (
-            runs.empty
-            or "metrics.accuracy" not in runs.columns
-            or pd.isna(runs.iloc[0]["metrics.accuracy"])
-        ):
-            print(
-                f"Experiment ID '{experiment_id}' に有効なaccuracyメトリクスを持つRunが見つかりませんでした。"
-            )
-            return None  # ベースラインが見つからない場合はNone
-        baseline_accuracy = float(runs.iloc[0]["metrics.accuracy"])
-        print(f"取得したベースライン精度: {baseline_accuracy}")
-        return baseline_accuracy
-    except Exception as e:
-        print(f"MLflowからのベースライン精度取得中にエラーが発生しました: {e}")
-        return None
 
 
 def test_model_regression_mlflow(train_model):
