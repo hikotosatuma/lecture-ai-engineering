@@ -226,12 +226,12 @@ def test_model_regression_mlflow(train_model):
     baseline_accuracy = get_baseline_accuracy_mlflow()
 
     if baseline_accuracy is None:
-        pytest.skip(
-            "ベースライン精度が取得できなかったため、精度比較テストをスキップします。"
+        pytest.fail(
+            "ベースライン精度がMLflowから取得できませんでした。精度比較テストを実行できません。"
         )
     else:
         # ここでは単純に下回った場合をエラーとしていますが、許容範囲を設けることも可能です。
         # 例: assert current_accuracy >= baseline_accuracy - 0.01
         assert (
             current_accuracy >= baseline_accuracy
-        ), f"モデルの精度がベースラインを下回りました。現在: {current_accuracy}, ベースライン: {baseline_accuracy}"
+        ), f"新モデルの精度({current_accuracy:.4f})が、MLflow上のベースライン精度({baseline_accuracy:.4f})より低下しています"
